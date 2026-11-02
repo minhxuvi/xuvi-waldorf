@@ -1,0 +1,19 @@
+# macOS
+.DS_Store
+
+# Local reference materials (large, machine-local)
+/tmp/
+
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Dependencies and build output (stack TBD)
+node_modules/
+dist/
+build/
+.venv/
+__pycache__/

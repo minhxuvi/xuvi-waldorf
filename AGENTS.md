@@ -1,81 +1,17 @@
-# WORKFLOW OPERATING PROTOCOL (SPEC-DRIVEN AGENT)
+# WORKFLOW OPERATING PROTOCOL
 
-You operate under a strict 5-Phase Spec-Driven Development protocol managed through local Markdown artifacts (`00` to `04`). The filesystem is the single source of truth. Never skip phases, assume unverified requirements, or proceed past a gate without explicit user approval.
+You operate under a 5-phase Spec-Driven workflow via the file system. All specification files are stored inside the `/specs` directory. Strictly **DO NOT** skip any steps without an explicit `"APPROVE"` command from me.
 
----
-
-## 0. Bootstrap & State Detection (Run on Session Start)
-Before taking any action in a new or resumed session, inspect the workspace for existing workflow files (`00_master_prompt.md` through `04_progress_log.md`):
-- Determine the current active phase based on existing files and their `Status: [DRAFT | APPROVED | IN_PROGRESS | COMPLETED]` header.
-- If `04_progress_log.md` exists, read it first to identify the last completed task, recent git commits, and any unresolved blockers, then resume seamlessly from that exact point.
-
----
-
-## 1. File Interaction & Co-Editing Rules
-- **Disk-First Rule:** Always re-read a spec file from disk immediately before editing or reviewing it. Never rely on cached conversation history for file contents.
-- **Direct User Edits:** Treat any manual changes made by the user to a file as authoritative design overrides. When asked to review a user-edited file:
-  1. Diff/analyze the user's changes against the rest of the document.
-  2. Flag any logical contradictions, missing dependencies, security risks, or technical infeasibilities.
-  3. Update dependent sections surgically without overwriting user-authored constraints.
-  4. If the file is coherent and feasible, confirm readiness and await `APPROVE`.
-- **Inline `@AI:` Directives:** Scan files for `@AI: <instruction/question>`. Resolve each directive directly in the relevant section of the file, and remove the `@AI:` tag only after its resolution is written into the document.
-- **Document Header:** Every generated spec file (`01`, `02`, `03`) must begin with the metadata line:
-  `> Status: DRAFT | Last Updated: YYYY-MM-DD`
-  Update `Status` to `APPROVED` only when the user explicitly approves that phase.
-
----
-
-## 2. Mandatory 5-Phase Execution Lifecycle
-
-### Phase 1: Research Planning (`01_research_plan.md`)
-- **Trigger:** Presence of `00_master_prompt.md`.
-- **Action:** Analyze `00_master_prompt.md` and generate `01_research_plan.md` containing:
-  1. **Assumptions & Open Questions:** Implicit assumptions that require user confirmation and ambiguities that could alter scope.
-  2. **Investigation Scope:** Specific codebases, APIs, libraries, edge cases, and constraints to examine.
-  3. **Sources & Tooling:** Documentation, local directories, or external tools to query.
-- **Gate 1:** **STOP.** Ask the user to review/edit `01_research_plan.md`. Do not execute research until the user replies `APPROVE` (or sets `Status: APPROVED`).
-
-### Phase 2: Research Execution & Synthesis (`02_research_synthesis.md`)
-- **Trigger:** `01_research_plan.md` is `APPROVED`.
-- **Action:** Execute the approved research plan. Distill all findings into a concise, high-signal `02_research_synthesis.md` containing:
-  1. **Key Technical Findings & Constraints:** Verified facts, environment realities, and hard limits.
-  2. **Architecture & Trade-off Analysis:** Recommended approach vs. viable alternatives.
-  3. **Resolved Decisions:** Clear answers to the open questions from Phase 1.
-- **Gate 2 (Conditional):**
-  - If research uncovers **critical blockers** or **major architectural trade-offs** requiring a human decision, **STOP** and ask the user to review `02_research_synthesis.md`.
-  - Otherwise, immediately proceed to Phase 3 (or recommend a context reset before Phase 3 if context usage is heavy).
-
-### Phase 3: Implementation Planning (`03_implementation_plan.md`)
-- **Trigger:** Completion/Approval of `02_research_synthesis.md`.
-- **Action:** Using `02_research_synthesis.md` as the primary reference, generate `03_implementation_plan.md` containing:
-  1. **Pre-flight Requirements & Permissions:** Exhaustive checklist of required CLI tools, file/directory permissions, network access, API keys, `.env` variables, and background services needed for uninterrupted autonomous execution.
-  2. **Safety Guardrails (Denylist):** Destructive commands, protected directories/branches, or external mutations strictly off-limits during execution.
-  3. **Phased Atomic Tasks & Verification (Definition of Done):** Ordered, bite-sized implementation tasks. Every single task MUST specify an exact, automated verification command (unit test, integration test, build check, or CLI assertion) that proves completion.
-- **Gate 3:** **STOP.** Wait for the user to review/edit `03_implementation_plan.md` and explicitly reply `APPROVE`.
-
-### Phase 4: Pre-flight Verification & Dry Run
-- **Trigger:** `03_implementation_plan.md` is `APPROVED`.
-- **Action:**
-  1. Guide the user step-by-step to grant the permissions, secrets, and environment setups listed in **Pre-flight Requirements**.
-  2. Once the user confirms setup is complete, run automated **Pre-flight Smoke Tests** (non-destructive dry runs verifying tool versions, read/write permissions, test runner execution, and API/DB connectivity).
-- **Gate 4:** Only transition to Phase 5 when **100% of Pre-flight Smoke Tests pass**. If any check fails, halt and help the user resolve the environment issue first.
-
-### Phase 5: Autonomous Execution Loop & Progress Tracking (`04_progress_log.md`)
-- **Trigger:** 100% Pre-flight pass.
-- **Action:** Initialize `04_progress_log.md` if it does not exist, then execute tasks sequentially from `03_implementation_plan.md`:
-  1. **Scope Isolation:** Implement only what is specified in the current active task. Do not perform unrequested refactoring or touch unrelated files.
-  2. **Verify & Regress:** Run the task's specific verification command PLUS existing test suites to ensure zero regressions.
-  3. **Checkpoint:** When verification passes:
-     - Mark the task `[x]` in `03_implementation_plan.md` and log completion details in `04_progress_log.md`.
-     - Create an atomic Git commit (if inside a Git repository) with a clear commit message referencing the task ID.
-     - Advance immediately to the next task without waiting for user input.
-
----
-
-## 3. Circuit Breaker & Anti-Gaming Rules (Strictly Enforced)
-- **Zero Test Manipulation:** Never weaken, delete, mock away core logic, or hardcode return values just to make a failing test pass. Tests must validate real behavior defined in `03_implementation_plan.md`.
-- **3-Strike Circuit Breaker:** If a task fails verification **3 consecutive times** after attempted fixes, OR if fixing the issue requires deviating from the approved architecture in `03_implementation_plan.md`:
-  1. **HALT** autonomous execution immediately.
-  2. Revert uncommitted broken changes to keep the working tree clean (or stash them clearly).
-  3. Log the exact error output, the 3 attempted hypotheses, and the root-cause analysis in `04_progress_log.md`.
-  4. Report the blocker clearly to the user and propose options before taking further action.
+## Mandatory Phases:
+1. **Phase 1 (Research Plan):** Read `/specs/00_master_prompt.md` -> Create `/specs/01_research_plan.md` containing: (a) Assumptions to be validated, (b) List of items to investigate/research, and (c) Sources/tools to be consulted. Stop and wait for my review and `"APPROVE"`.
+2. **Phase 2 (Research Execution):** Once `/specs/01_research_plan.md` is APPROVED -> Conduct the research and output a concise synthesis into `/specs/02_research_synthesis.md` (including key findings, technical constraints, and architectural recommendations).
+3. **Phase 3 (Implementation Plan):** Based on `/specs/02_research_synthesis.md` -> Create `/specs/03_implementation_plan.md` containing:
+   - **Pre-flight & Permissions**: List all access permissions, CLI tools, API keys, and environment variables required to run autonomously from start to finish without interruption.
+   - **Guardrails**: Dangerous or destructive actions that must strictly never be performed autonomously.
+   - **Phased Tasks & Verification**: Break the work down into step-by-step tasks; each step must clearly define a specific test/verification command (Definition of Done).
+   Stop and wait for my review and `"APPROVE"`.
+4. **Phase 4 (Pre-flight Check):** Guide me in granting the permissions listed in the Pre-flight section. As soon as I confirm they have been granted, run live verification commands (smoke test/dry-run) for all permissions and tools. Only proceed to Phase 5 when 100% of checks pass.
+5. **Phase 5 (Autonomous Execution Loop):**
+   - Sequentially execute each Task in `/specs/03_implementation_plan.md`.
+   - After each Task: Run the verification test -> If Pass: update the status in `/specs/04_progress_log.md` and create a Git commit (if Git is available) -> Move to the next Task.
+   - **Circuit Breaker Rule:** Strictly never modify a test just to force it to pass. If an error repeats for more than 3 consecutive fix attempts, or requires changing the architecture in `/specs/03_implementation_plan.md`, **STOP**, document the exact cause in `/specs/04_progress_log.md`, and report to me.

@@ -1,6 +1,6 @@
 # 01. Research Plan: A Product for Waldorf-Inspired Homeschooling in Vietnam
 
-> Status: DRAFT — awaiting review and explicit `APPROVE` before Phase 2 (Research Execution).
+> Status: APPROVED — reviewer replied `APPROVE` on 2026-11-03. Defaults in §5 confirmed as bracketed (research span mầm non–lớp 12; Vietnamese first UI/document language; R13 evaluation-only) and A1–A3 confirmed. Phase 2 (Research Execution) authorized.
 > Source of truth for intent: [Master Prompt: A Product for Waldorf-Inspired Homeschooling in Vietnam](/Users/moc/Projects/xuvi-waldorf/specs/00_master_prompt.md).
 > Workflow: [WORKFLOW OPERATING PROTOCOL](/Users/moc/Projects/xuvi-waldorf/AGENTS.md).
 > This document is a plan only. It takes no final product, pedagogy, legal, or architecture decisions. Preliminary technology leanings in §5 are hypotheses to be tested in Phase 2, not conclusions.
@@ -12,7 +12,7 @@ The master prompt asks for a product for Waldorf-inspired homeschooling in Vietn
 1. **XuVi Story (mandatory feature)** — helps a parent practice telling folktales: upload a story, divide it into memorable scenes, generate age-appropriate watercolor or crayon illustrations per scene, record a retelling, and receive comparative feedback.
 2. **On-demand generation of six education documents** — (1) Overall education program, (2) Detailed education program by grade/age, (3) Alignment matrix with the Ministry of Education and Training (MOET) General Education Curriculum, (4) Academic-year education plan, (5) Timetable and weekly lesson plan (08:00–15:00, Mon–Fri), and (6) Teaching journal and student assessment records.
 
-The master prompt also imposes a technology decision: choose the tech stack and decide which of nine named Meta products **should** be used — Wonder, Spark, Image, Voice Transcribe, SAM 3.1, Spark Open, Glimmer, Baseten, Modal, Fireworks — without requiring all of them, with the reasoning recorded in the research plan.
+The master prompt also imposes a technology decision: choose the tech stack and decide which of ten named Meta products **should** be used — Wonder, Spark, Image, Voice Transcribe, SAM 3.1, Spark Open, Glimmer, Baseten, Modal, Fireworks — without requiring all of them, with the reasoning recorded in the research plan.
 
 Local reference material exists in `tmp/` (git-ignored, machine-local) and is listed as a source in §6. Phase 2 must treat that material as candidate input whose provenance, licensing, and authority still need validation (see A13–A15), not as ground truth.
 
@@ -26,10 +26,10 @@ Each assumption is falsifiable in Phase 2. "If false" states the consequence tha
 
 ### Users and context
 
-- **A1 — Primary user is the parent-as-teacher.** The person uploading stories, practicing retellings, and generating documents is a homeschooling parent, not a school-employed Waldorf teacher. *If false:* multi-teacher roles, classroom cohorts, and school administration become in-scope.
-- **A2 — Children are not direct app users.** Consistent with the XuVi Story note that images support the teacher's preparation and children do not need the app, the child-facing surface is screen-free. *If false:* child accounts, child-safe UI, and in-app child interaction must be researched.
-- **A3 — Homeschooling is practiced as family-based education that still needs to evidence alignment with MOET outcomes.** Parents want Waldorf pedagogy *and* a defensible mapping to the official curriculum. *If false* (e.g., purely enrichment use, or a formal school filing use): the compliance bar for the six documents changes materially.
-- **A4 — Vietnamese is the primary language** of stories, UI, feedback, and generated documents, with possible English (and per Waldorf sources, Chinese) as foreign-language subjects. *If false:* bilingual UI and feedback become required scope.
+- **A1 — Primary user is the teacher.** The person uploading stories, practicing retellings, and generating documents is a homeschooling teacher of one or many students. Teacher can be parents or anyone else that teach the students.
+- **A2 — Children are not direct app users.** Consistent with the XuVi Story note that images support the teacher's preparation and children do not need the app, the child-facing surface is screen-free.
+- **A3 — Homeschooling is practiced as group-of-families-based education that still needs to evidence alignment with MOET outcomes.** Parents want Waldorf pedagogy *and* a defensible mapping to the official curriculum.
+- **A4 — Bilingual Vietnamese-primary with English support is needed.** UI and the six documents default to Vietnamese; stories, prompts, and learning materials handle Vietnamese and English (Vietnamese folktales plus Waldorf-typical tales such as Grimm in translation/original). *If false* (Vietnamese-only): English source tales and Cambridge-aligned content need a translation workflow; if English-first: MOET alignment and parent usability break.
 
 ### Pedagogy and curriculum
 
@@ -46,7 +46,7 @@ Each assumption is falsifiable in Phase 2. "If false" states the consequence tha
 
 ### Technology
 
-- **A12 — The nine named "Meta products" are evaluable as real, accessible offerings** (API, model weights, or hosted inference) with discoverable pricing, data terms, and Vietnamese-language capability. *If false for any item* (research preview, waitlist, no API, no Vietnamese): Phase 2 must record it as unavailable and name the fallback, rather than assuming it.
+- **A12 — The ten named "Meta products" are evaluable as real, accessible offerings** (API, model weights, or hosted inference) with discoverable pricing, data terms, and Vietnamese-language capability. *If false for any item* (research preview, waitlist, no API, no Vietnamese): Phase 2 must record it as unavailable and name the fallback, rather than assuming it.
 - **A13 — Cloud AI is acceptable for story text, generated images, and voice.** Parents will consent to sending story text and retelling audio to AI services, provided privacy controls (private by default, export/delete, disclosure of when data leaves the device) exist. *If false:* on-device or self-hosted inference becomes a hard requirement.
 - **A14 — Vietnamese speech-to-text of sufficient quality exists** for retelling transcription, including correction of the transcript by the parent. *If false:* feedback must degrade gracefully to transcript-free or audio-only comparison.
 - **A15 — Reference corpora in `tmp/` may be used as product seed/reference content.** The three Waldorf curriculum compilations, the Vietnamese story text, and the MOET PDF are usable beyond private research. *If false:* they inform research only, and product content must be authored or licensed separately.
@@ -116,7 +116,7 @@ The master prompt asks for choices with reasoning recorded in the research plan.
 | Image segmentation (SAM 3.1) | Only if a concrete need survives R18 (e.g., cutting out a parent's sketch or photo) | R17–R18: default is *not used* unless a named flow requires masks |
 | Inference hosting (Baseten / Modal / Fireworks / Glimmer / Spark Open) | Prefer managed APIs; adopt a hosting platform only for a model that must be self-served | R17, R22: adopt only when an API gap (e.g., open weights, custom voice) forces self-hosting; compare cost/ops |
 
-Explicit non-goal carried into Phase 2: the product is **not** required to use all nine named products. A product with no accessible API, no Vietnamese path, or no flow that needs it will be recorded as "evaluated, not used" with the reason — that is a valid Phase 2 outcome, not a gap.
+Explicit non-goal carried into Phase 2: the product is **not** required to use all ten named products. A product with no accessible API, no Vietnamese path, or no flow that needs it will be recorded as "evaluated, not used" with the reason — that is a valid Phase 2 outcome, not a gap.
 
 ---
 
@@ -158,7 +158,7 @@ Explicit non-goal carried into Phase 2: the product is **not** required to use a
 
 **Method.** For each R item: consult the listed sources, record evidence with citations (page/section/URL), state the finding, state the constraint it imposes, and — where sources conflict (the three Waldorf corpora will conflict) — name the conflict instead of silently merging. Hands-on probes are time-boxed and reported with exact inputs/outputs, including failures.
 
-**Deliverable.** [02 Research Synthesis](/Users/moc/Projects/xuvi-waldorf/specs/02_research_synthesis.md) containing, per the operating protocol: key findings, technical constraints, and architectural recommendations — plus (i) a verdict table for all nine Meta products (use / evaluate further / not used, with reason), (ii) a recommended stack, (iii) an explicit list of unresolved items, and (iv) the shared content model sketch for the six documents.
+**Deliverable.** [02 Research Synthesis](/Users/moc/Projects/xuvi-waldorf/specs/02_research_synthesis.md) containing, per the operating protocol: key findings, technical constraints, and architectural recommendations — plus (i) a verdict table for all ten Meta products (use / evaluate further / not used, with reason), (ii) a recommended stack, (iii) an explicit list of unresolved items, and (iv) the shared content model sketch for the six documents.
 
 **Gates and circuit breakers.**
 
@@ -181,7 +181,7 @@ This section records how Phase 2 will actually be run, with what, and what it ne
 
 - **Orchestrator:** the Muse session that launches Phase 2. It owns scope, workstream assignment, conflict resolution between sources, and the final synthesis in `02_research_synthesis.md`. It does not delegate the `APPROVE` gate or final verdicts. The orchestrator may itself run on the cheap default model (below); the judgment-heavy steps it supervises are explicitly escalated, so quality does not depend on the orchestrator's own tier.
 - **Default worker model — `muse-spark-1.3-contributor`:** every research worker uses this model unless an escalation trigger below fires. Per the reviewer's price list it is roughly two orders of magnitude cheaper than `muse-wonder-1.0` ($0.002 / $0.10 / $0.20 vs. $0.2 / $4 / $20), so it carries all high-volume work: web search and page summarisation, local-corpus extraction, PDF text extraction and structuring, first-pass evidence tables, and draft mappings. Model choice is set explicitly on every workflow call; workers never silently inherit the parent session's model.
-- **Escalation to `muse-wonder-1.0` — only for judgment, not volume:** (i) the adversarial critic, (ii) the final synthesis and all verdicts (including the nine-product verdict table), (iii) resolving conflicts between the three Waldorf corpora, (iv) legal interpretation under R7, and (v) a single retry of any worker that returns `complete: false`, thin evidence, or a critic flag. Everything else stays on the default.
+- **Escalation to `muse-wonder-1.0` — only for judgment, not volume:** (i) the adversarial critic, (ii) the final synthesis and all verdicts (including the ten-product verdict table), (iii) resolving conflicts between the three Waldorf corpora, (iv) legal interpretation under R7, and (v) a single retry of any worker that returns `complete: false`, thin evidence, or a critic flag. Everything else stays on the default.
 - **No middle tier for this project:** per reviewer instruction, routine work stays on `muse-spark-1.3-contributor` and only the judgment steps listed above escalate to `muse-wonder-1.0`. `muse-spark-1.3` (non-contributor) is not used.
 - **Data use (cleared by reviewer):** the reviewer created all files in `tmp/` and confirms they may be used without copyright concern. `tmp/` corpora therefore go to contributor workers like any public source (MOET publications, product documentation, benchmarks). Local pre-extraction is still preferred for the bulkiest material, purely for efficiency, not as a restriction.
 - **Workstreams (split by evidence surface, not by role name):**
@@ -189,7 +189,7 @@ This section records how Phase 2 will actually be run, with what, and what it ne
   2. MOET GDPT 2018 structure, alignment method, and homeschooling legal context (R5–R7).
   3. XuVi Story end-to-end (R8–R13).
   4. The six generated documents and their shared content model (R14–R16).
-  5. The nine named Meta products, capability fit, and Vietnamese-language quality (R17–R19).
+  5. The ten named Meta products, capability fit, and Vietnamese-language quality (R17–R19).
   6. Reference stack, cross-cutting concerns, cost, and `tmp/` provenance (R20–R24).
 - **Evidence contract:** every worker returns a structured result — `complete`, `evidence[]`, `unresolved[]` — and must open and read every source body it cites (page, section, or URL). Search-result snippets locate candidates; they are not evidence. Notes and provenance references from each worker are carried into synthesis, and omitted scope is disclosed rather than silently dropped.
 - **Verification:** after the six workstreams, one adversarial critic looks for concrete gaps and falsifiable weak claims; each surviving gap gets at most one focused follow-up. A final synthesis step then writes `02_research_synthesis.md` from the collected evidence only. Execution finishing is not treated as research completeness — unresolved items stay listed.
@@ -222,7 +222,7 @@ This section records how Phase 2 will actually be run, with what, and what it ne
 - No API keys, accounts, or billing setup — including no search API key (see §6.2).
 - No product, cloud, or hosting accounts.
 
-**Deferred to later phases:** API keys or accounts for any Meta product or alternative vendor (LLM, image, speech-to-text), and for any hosting platform (e.g., Baseten, Modal, Fireworks), are only needed if (a) the reviewer requests hands-on API probes during Phase 2 for a specific product, or (b) Phase 3's Pre-flight section lists them for implementation, to be verified in Phase 4. Phase 2 identifies which of the nine named products are real and accessible; it does not require accessing them.
+**Deferred to later phases:** API keys or accounts for any Meta product or alternative vendor (LLM, image, speech-to-text), and for any hosting platform (e.g., Baseten, Modal, Fireworks), are only needed if (a) the reviewer requests hands-on API probes during Phase 2 for a specific product, or (b) Phase 3's Pre-flight section lists them for implementation, to be verified in Phase 4. Phase 2 identifies which of the ten named products are real and accessible; it does not require accessing them.
 
 ---
 

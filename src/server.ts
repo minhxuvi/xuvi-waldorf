@@ -5,6 +5,7 @@ import { confirmAlignmentRow, createAlignmentRow, renderMatrix } from "./alignme
 import { authenticate, loginTeacher, logoutTeacher, logAudit, registerTeacher } from "./auth.js";
 import { getEnv, getPool } from "./db.js";
 import { createGradeProgram, createProgram, createYearPlan, lockProgram, updateProgram } from "./documents.js";
+import { appendJournalEntry, buildReportDraft, createChildProfile, createReport, listJournal, signOffReport } from "./journal.js";
 import { createSlots, renderWeek } from "./timetable.js";
 import { loadEnv, type AppEnv } from "./env.js";
 import { t } from "./i18n.js";
@@ -33,6 +34,13 @@ export const ROUTES = [
   "POST /api/year-plans/:id/slots",
   "GET /api/year-plans/:id/timetable",
   "GET /api/moet/search",
+  "POST /api/children",
+  "GET /api/children",
+  "POST /api/children/:id/journal",
+  "GET /api/children/:id/journal",
+  "GET /api/children/:id/report-draft",
+  "POST /api/children/:id/reports",
+  "POST /api/reports/:id/signoff",
 ] as const;
 
 function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {
@@ -262,6 +270,60 @@ export function createApp(env: AppEnv, dbCheck: (url: string) => Promise<boolean
           [subject, grade, q],
         );
         sendJson(res, 200, rows.rows);
+        return;
+      }
+      if (route === "POST /api/children") {
+        const body = await readJson(req);
+        sendJson(res, 201, await createChildProfile(pool, me.family_id, {
+          displayName: String(body["displayName"] ?? ""),
+          ageBand: String(body["ageBand"] ?? ""),
+          grade: String(body["grade"] ?? ""),
+          language: body["language"] as string | undefined,
+          needs: body["needs"] as string | undefined,
+        }));
+        return;
+      }
+      if (route === "GET /api/children") {
+        const rows = await pool.query("SELECT id, display_name, age_band, grade, language, needs, created_at FROM child_profiles WHERE family_id = $1 ORDER BY created_at", [me.family_id]);
+        sendJson(res, 200, rows.rows);
+        return;
+      }
+      const childMatch = /^(GET|POST) \/api\/children\/([^/]+)(\/.*)?$/.exec(`${req.method} ${req.url?.split("?")[0]}`);
+      if (childMatch) {
+        const [, method, id, rest] = childMatch;
+        if (method === "POST" && rest === "/journal") {
+          const body = await readJson(req);
+          sendJson(res, 201, await appendJournalEntry(pool, me.family_id, id, {
+            entryDate: String(body["entryDate"] ?? ""),
+            contentDelivered: body["contentDelivered"] as string | undefined,
+            attendance: body["attendance"] as string | undefined,
+            assessmentNotes: body["assessmentNotes"] as string | undefined,
+            assignments: body["assignments"] as string | undefined,
+            artifactRefs: body["artifactRefs"],
+            progressNotes: body["progressNotes"] as string | undefined,
+          }));
+          return;
+        }
+        if (method === "GET" && rest === "/journal") {
+          sendJson(res, 200, await listJournal(pool, me.family_id, id));
+          return;
+        }
+        if (method === "GET" && rest === "/report-draft") {
+          const u = new URL(req.url ?? "", "http://x");
+          sendJson(res, 200, await buildReportDraft(pool, me.family_id, id, u.searchParams.get("period") ?? ""));
+          return;
+        }
+        if (method === "POST" && rest === "/reports") {
+          const body = await readJson(req);
+          sendJson(res, 201, await createReport(pool, me.family_id, id, String(body["periodLabel"] ?? ""), String(body["narrative"] ?? "")));
+          return;
+        }
+      }
+      const signMatch = /^POST \/api\/reports\/([^/]+)\/signoff$/.exec(`${req.method} ${req.url?.split("?")[0]}`);
+      if (signMatch) {
+        const body = await readJson(req);
+        await signOffReport(pool, me.family_id, signMatch[1], String(body["signoff"] ?? ""));
+        sendJson(res, 200, { ok: true });
         return;
       }
       if (route === "POST /api/draft") {

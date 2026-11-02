@@ -76,4 +76,11 @@ Plan locked: [03 Implementation Plan](/Users/moc/Projects/xuvi-waldorf/specs/03_
 - Fixes during task (1): widened 400-error mapping again (`over-allocates|positive|must be|after start`).
 - Status: DONE.
 
+## Task 7 — Teaching journal and assessment records (Doc 6)
+
+- Built: `src/journal.ts` (child profiles, journal append with YYYY-MM-DD rule, deterministic report rollup, create + single sign-off); routes `POST/GET /api/children*`, `POST /api/reports/:id/signoff`; `scripts/e2e-journal.mjs`; `tests/journal.test.ts`.
+- Verification (all green, real run): full suite 29 passed; `E2E PASS: journal-to-report` (live: bad date 400 → 2 entries → list → draft rollup counts 2 → report → sign-off → double sign-off 400); lint/typecheck/build clean.
+- Fixes during task (2): e2e double-signoff assertion was inverted; narrowed the T10 route-table test to forbid child auth (login/session/password/token) while allowing teacher-managed profiles.
+- Status: DONE.
+
 ---

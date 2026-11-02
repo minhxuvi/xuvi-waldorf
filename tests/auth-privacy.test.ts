@@ -25,10 +25,13 @@ describe("secret stripping", () => {
 });
 
 describe("route table (T10)", () => {
-  it("contains no child-login or child-facing routes", () => {
+  it("contains no child-login routes (child profiles are teacher-managed)", () => {
     const joined = ROUTES.join("\n").toLowerCase();
-    expect(joined).not.toMatch(/child.*login|login.*child|\/api\/children/);
+    // No child accounts, logins, or sessions may exist anywhere.
+    expect(joined).not.toMatch(/child.*login|login.*child|child.*session|child.*password|child.*token/);
     expect(ROUTES).toContain("POST /api/teachers/register");
     expect(ROUTES).toContain("DELETE /api/account");
+    // Teacher-managed profiles live under teacher auth (no child auth).
+    expect(ROUTES).toContain("POST /api/children");
   });
 });

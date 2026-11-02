@@ -1,7 +1,9 @@
 import { Client } from "pg";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { draftProse } from "./ai.js";
 import { authenticate, loginTeacher, logoutTeacher, logAudit, registerTeacher } from "./auth.js";
-import { getPool } from "./db.js";
+import { getEnv, getPool } from "./db.js";
+import { createGradeProgram, createProgram, createYearPlan, lockProgram, updateProgram } from "./documents.js";
 import { loadEnv, type AppEnv } from "./env.js";
 import { t } from "./i18n.js";
 import { deleteFamily, exportFamily } from "./privacy.js";
@@ -17,6 +19,12 @@ export const ROUTES = [
   "GET /api/export",
   "DELETE /api/account",
   "GET /api/audit",
+  "POST /api/programs",
+  "PATCH /api/programs/:id",
+  "POST /api/programs/:id/lock",
+  "POST /api/programs/:id/grades",
+  "POST /api/programs/:id/year-plans",
+  "POST /api/draft",
 ] as const;
 
 function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {
@@ -133,10 +141,74 @@ export function createApp(env: AppEnv, dbCheck: (url: string) => Promise<boolean
         sendJson(res, 200, { ok: true });
         return;
       }
+      if (route === "POST /api/programs") {
+        const body = await readJson(req);
+        sendJson(res, 201, await createProgram(pool, me.family_id, {
+          philosophy: body["philosophy"] as string | undefined,
+          goals: body["goals"] as string | undefined,
+          config: body["config"] as never,
+          provenance: body["provenance"] as never,
+        }));
+        return;
+      }
+      const progMatch = /^(\w+) \/api\/programs\/([^/]+)(\/.*)?$/.exec(`${req.method} ${req.url?.split("?")[0]}`);
+      if (progMatch) {
+        const [, method, id, rest] = progMatch;
+        if (method === "PATCH" && !rest) {
+          const body = await readJson(req);
+          await updateProgram(pool, me.family_id, id, body as never);
+          sendJson(res, 200, { ok: true });
+          return;
+        }
+        if (method === "POST" && rest === "/lock") {
+          await lockProgram(pool, me.family_id, id);
+          sendJson(res, 200, { ok: true });
+          return;
+        }
+        if (method === "POST" && rest === "/grades") {
+          const body = await readJson(req);
+          sendJson(res, 201, await createGradeProgram(pool, me.family_id, id, {
+            grade: String(body["grade"] ?? ""),
+            subjects: body["subjects"],
+            objectives: body["objectives"] as string | undefined,
+            content: body["content"] as string | undefined,
+            allocatedHours: body["allocatedHours"],
+            provenance: body["provenance"] as never,
+          }));
+          return;
+        }
+        if (method === "POST" && rest === "/year-plans") {
+          const body = await readJson(req);
+          sendJson(res, 201, await createYearPlan(pool, me.family_id, id, {
+            yearLabel: String(body["yearLabel"] ?? ""),
+            weeksTotal: Number(body["weeksTotal"]),
+            festivalWeeks: body["festivalWeeks"] as number | undefined,
+            monthlyThemes: body["monthlyThemes"],
+            activities: body["activities"] as string | undefined,
+            contingency: body["contingency"] as string | undefined,
+            rhythmProvenance: body["rhythmProvenance"] as string | undefined,
+          }));
+          return;
+        }
+      }
+      if (route === "POST /api/draft") {
+        const body = await readJson(req);
+        const kind = String(body["kind"] ?? "");
+        if (!["program_philosophy", "grade_narrative", "year_plan", "feedback"].includes(kind)) {
+          sendJson(res, 400, { error: "unknown draft kind" });
+          return;
+        }
+        sendJson(res, 200, await draftProse(pool, getEnv(), me.family_id, {
+          kind: kind as never,
+          language: (body["language"] as string | undefined) ?? "vi",
+          context: String(body["context"] ?? ""),
+        }));
+        return;
+      }
       sendJson(res, 404, { error: "not-found" });
     } catch (err) {
       const message = err instanceof Error ? err.message : "internal";
-      const status = /unauthorized|invalid credentials/.test(message) ? 401 : /Missing|invalid|too short|exists/.test(message) ? 400 : 500;
+      const status = /unauthorized|invalid credentials/.test(message) ? 401 : /Missing|invalid|too short|exists|unknown|required|locked|not found/.test(message) ? 400 : 500;
       sendJson(res, status, { error: status === 500 ? "internal" : message });
     }
   });

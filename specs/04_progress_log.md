@@ -62,4 +62,11 @@ Plan locked: [03 Implementation Plan](/Users/moc/Projects/xuvi-waldorf/specs/03_
 - Verification (all green, real run): `ingest_moet.py --check` → `CHECK OK` (11,003 rows, 0 invented codes, verbatim page cross-check 389/400); `pnpm test -- moet-dataset` within full suite (21 passed); `003_moet.sql` applied live. Note: `--seed` (11k upserts) was still running at commit time; seed is outside Task 4's verification commands and is confirmed separately before Task 6.
 - Status: DONE.
 
+## Task 5 — Corpus-derived defaults with provenance (Documents 1, 2, 4 drafting)
+
+- Built: `scripts/extract_corpus.py` → `data/corpus_defaults.json` (classical 12 + cambridge 12 + ntn 17 grade blocks with source path/SHA + per-corpus caveats, conflicts C1–C5 left unresolved for family choice); `db/migrations/004_program_config.sql` (programs.config / year_plans.config for D1–D4 explicit choices); `src/ai.ts` (meta → fallback → honestly-labelled stub provider interface, per-call audit); `src/documents.ts` (program/grade/year-plan create-edit-lock with config validation, locked-edit rejection); routes `POST/PATCH /api/programs*`, `POST /api/draft`; `scripts/e2e-docs.mjs`; `tests/documents.test.ts` (4 tests).
+- Verification (all green, real run): full suite 25 passed; `pnpm test:e2e` → health + privacy-flow + `E2E PASS: doc-generate-edit-lock` (live: bad rhythm 400 → create → grade → year plan → stub draft → edit → lock → locked-edit rejected → audit contains program.create/update/lock + ai.draft); lint/typecheck/build clean.
+- Fixes during task (1): widened 400-error mapping (`unknown|required|locked|not found`) so validation errors no longer surface as 500.
+- Status: DONE.
+
 ---

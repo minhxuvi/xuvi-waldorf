@@ -69,4 +69,11 @@ Plan locked: [03 Implementation Plan](/Users/moc/Projects/xuvi-waldorf/specs/03_
 - Fixes during task (1): widened 400-error mapping (`unknown|required|locked|not found`) so validation errors no longer surface as 500.
 - Status: DONE.
 
+## Task 6 — Deterministic documents: alignment matrix (Doc 3) and timetable (Doc 5)
+
+- Built: `src/alignment.ts` (create/confirm per parent, `renderMatrix` confirmed-only with provenance labels, deferred-requires-roadmap); `src/timetable.ts` (day/week validation, `renderWeek` with per-day totals); routes `POST/PATCH /api/grades|alignments|matrix`, `POST/GET /api/year-plans/:id/slots|timetable`, `GET /api/moet/search` (reference lookup over seeded MOET rows); `scripts/e2e-matrix.mjs`; `tests/alignment-timetable.test.ts` + snapshot (3 tests).
+- Verification (all green, real run): full suite 28 passed; `E2E PASS: matrix-timetable` (live: empty verbatim 400 → create unconfirmed → matrix empty → confirm → matrix renders 1 row with all provenance labels → over-allocation 400 → valid slots → Tuesday total 150/instructional 120).
+- Fixes during task (1): widened 400-error mapping again (`over-allocates|positive|must be|after start`).
+- Status: DONE.
+
 ---

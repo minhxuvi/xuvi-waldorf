@@ -1,9 +1,11 @@
 import { Client } from "pg";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { draftProse } from "./ai.js";
+import { confirmAlignmentRow, createAlignmentRow, renderMatrix } from "./alignment.js";
 import { authenticate, loginTeacher, logoutTeacher, logAudit, registerTeacher } from "./auth.js";
 import { getEnv, getPool } from "./db.js";
 import { createGradeProgram, createProgram, createYearPlan, lockProgram, updateProgram } from "./documents.js";
+import { createSlots, renderWeek } from "./timetable.js";
 import { loadEnv, type AppEnv } from "./env.js";
 import { t } from "./i18n.js";
 import { deleteFamily, exportFamily } from "./privacy.js";
@@ -25,6 +27,12 @@ export const ROUTES = [
   "POST /api/programs/:id/grades",
   "POST /api/programs/:id/year-plans",
   "POST /api/draft",
+  "POST /api/grades/:id/alignments",
+  "PATCH /api/alignments/:id/confirm",
+  "GET /api/grades/:id/matrix",
+  "POST /api/year-plans/:id/slots",
+  "GET /api/year-plans/:id/timetable",
+  "GET /api/moet/search",
 ] as const;
 
 function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {
@@ -191,6 +199,71 @@ export function createApp(env: AppEnv, dbCheck: (url: string) => Promise<boolean
           return;
         }
       }
+      const gradeMatch = /^(GET|POST) \/api\/grades\/([^/]+)(\/.*)?$/.exec(`${req.method} ${req.url?.split("?")[0]}`);
+      if (gradeMatch) {
+        const [, method, id, rest] = gradeMatch;
+        if (method === "POST" && rest === "/alignments") {
+          const body = await readJson(req);
+          sendJson(res, 201, await createAlignmentRow(pool, me.family_id, id, {
+            internalId: String(body["internalId"] ?? ""),
+            moetSubject: String(body["moetSubject"] ?? ""),
+            moetGrade: String(body["moetGrade"] ?? ""),
+            moetLevel: body["moetLevel"] as string | undefined,
+            moetStrand: body["moetStrand"] as string | undefined,
+            moetTopic: body["moetTopic"] as string | undefined,
+            yeuCauCanDatVerbatim: String(body["yeuCauCanDatVerbatim"] ?? ""),
+            pairedNoiDung: body["pairedNoiDung"] as string | undefined,
+            sourceLocator: body["sourceLocator"] as never,
+            homeschoolContent: body["homeschoolContent"] as string | undefined,
+            officialHours: body["officialHours"] as never,
+            allocatedHours: body["allocatedHours"] as never,
+            verification: body["verification"] as string | undefined,
+            degree: body["degree"] as string | undefined,
+            deferredRoadmap: body["deferredRoadmap"] as string | undefined,
+          }));
+          return;
+        }
+        if (method === "GET" && rest === "/matrix") {
+          sendJson(res, 200, await renderMatrix(pool, me.family_id, id));
+          return;
+        }
+      }
+      const alignMatch = /^PATCH \/api\/alignments\/([^/]+)\/confirm$/.exec(`${req.method} ${req.url?.split("?")[0]}`);
+      if (alignMatch) {
+        await confirmAlignmentRow(pool, me.family_id, alignMatch[1]);
+        sendJson(res, 200, { ok: true });
+        return;
+      }
+      const planMatch = /^(GET|POST) \/api\/year-plans\/([^/]+)(\/.*)?$/.exec(`${req.method} ${req.url?.split("?")[0]}`);
+      if (planMatch) {
+        const [, method, id, rest] = planMatch;
+        if (method === "POST" && rest === "/slots") {
+          const body = await readJson(req);
+          sendJson(res, 201, await createSlots(pool, me.family_id, id, Number(body["week"]), Number(body["day"]), (body["slots"] ?? []) as never));
+          return;
+        }
+        if (method === "GET" && rest?.startsWith("/timetable")) {
+          const u = new URL(req.url ?? "", "http://x");
+          sendJson(res, 200, await renderWeek(pool, me.family_id, id, Number(u.searchParams.get("week") ?? 1)));
+          return;
+        }
+      }
+      if (route === "GET /api/moet/search") {
+        const u = new URL(req.url ?? "", "http://x");
+        const subject = u.searchParams.get("subject") ?? "";
+        const grade = u.searchParams.get("grade") ?? "";
+        const q = u.searchParams.get("q") ?? "";
+        const rows = await pool.query(
+          `SELECT internal_id, subject, grade, level, yeu_cau_can_dat_verbatim, source_locator
+           FROM moet_outcomes
+           WHERE ($1 = '' OR subject = $1) AND ($2 = '' OR grade = $2)
+             AND ($3 = '' OR yeu_cau_can_dat_verbatim ILIKE '%' || $3 || '%')
+           ORDER BY subject, grade, internal_id LIMIT 50`,
+          [subject, grade, q],
+        );
+        sendJson(res, 200, rows.rows);
+        return;
+      }
       if (route === "POST /api/draft") {
         const body = await readJson(req);
         const kind = String(body["kind"] ?? "");
@@ -208,7 +281,7 @@ export function createApp(env: AppEnv, dbCheck: (url: string) => Promise<boolean
       sendJson(res, 404, { error: "not-found" });
     } catch (err) {
       const message = err instanceof Error ? err.message : "internal";
-      const status = /unauthorized|invalid credentials/.test(message) ? 401 : /Missing|invalid|too short|exists|unknown|required|locked|not found/.test(message) ? 400 : 500;
+      const status = /unauthorized|invalid credentials/.test(message) ? 401 : /Missing|invalid|too short|exists|unknown|required|locked|not found|over-allocates|positive|must be|after start/.test(message) ? 400 : 500;
       sendJson(res, status, { error: status === 500 ? "internal" : message });
     }
   });

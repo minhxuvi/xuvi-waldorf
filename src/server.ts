@@ -5,7 +5,9 @@ import { confirmAlignmentRow, createAlignmentRow, renderMatrix } from "./alignme
 import { authenticate, loginTeacher, logoutTeacher, logAudit, registerTeacher } from "./auth.js";
 import { getEnv, getPool } from "./db.js";
 import { createGradeProgram, createProgram, createYearPlan, lockProgram, updateProgram } from "./documents.js";
+import { renderGradeDoc, renderJournalDoc, renderMatrixDoc, renderProgramDoc, renderTimetableDoc, renderYearPlanDoc } from "./export.js";
 import { appendJournalEntry, buildReportDraft, createChildProfile, createReport, listJournal, signOffReport } from "./journal.js";
+import { htmlToPdf } from "./pdf.js";
 import { createSlots, renderWeek } from "./timetable.js";
 import { loadEnv, type AppEnv } from "./env.js";
 import { t } from "./i18n.js";
@@ -41,6 +43,7 @@ export const ROUTES = [
   "GET /api/children/:id/report-draft",
   "POST /api/children/:id/reports",
   "POST /api/reports/:id/signoff",
+  "GET /api/docs/:kind/:id",
 ] as const;
 
 function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {
@@ -318,6 +321,32 @@ export function createApp(env: AppEnv, dbCheck: (url: string) => Promise<boolean
           sendJson(res, 201, await createReport(pool, me.family_id, id, String(body["periodLabel"] ?? ""), String(body["narrative"] ?? "")));
           return;
         }
+      }
+      const docMatch = /^GET \/api\/docs\/([^/]+)\/([^/?]+)$/.exec(`${req.method} ${req.url?.split("?")[0]}`);
+      if (docMatch) {
+        const [, kind, id] = docMatch;
+        const u = new URL(req.url ?? "", "http://x");
+        const format = u.searchParams.get("format") ?? "pdf";
+        let html: string;
+        if (kind === "program") html = await renderProgramDoc(pool, me.family_id, id);
+        else if (kind === "grade") html = await renderGradeDoc(pool, me.family_id, id);
+        else if (kind === "matrix") html = await renderMatrixDoc(pool, me.family_id, id);
+        else if (kind === "yearplan") html = await renderYearPlanDoc(pool, me.family_id, id);
+        else if (kind === "timetable") html = await renderTimetableDoc(pool, me.family_id, id, Number(u.searchParams.get("week") ?? 1));
+        else if (kind === "journal") html = await renderJournalDoc(pool, me.family_id, id);
+        else {
+          sendJson(res, 404, { error: "unknown document kind" });
+          return;
+        }
+        if (format === "html") {
+          res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+          res.end(html);
+          return;
+        }
+        const pdf = await htmlToPdf(html);
+        res.writeHead(200, { "content-type": "application/pdf", "content-length": pdf.length });
+        res.end(pdf);
+        return;
       }
       const signMatch = /^POST \/api\/reports\/([^/]+)\/signoff$/.exec(`${req.method} ${req.url?.split("?")[0]}`);
       if (signMatch) {

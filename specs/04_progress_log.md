@@ -83,4 +83,11 @@ Plan locked: [03 Implementation Plan](/Users/moc/Projects/xuvi-waldorf/specs/03_
 - Fixes during task (2): e2e double-signoff assertion was inverted; narrowed the T10 route-table test to forbid child auth (login/session/password/token) while allowing teacher-managed profiles.
 - Status: DONE.
 
+## Task 8 — PDF/print export gate for all six documents
+
+- Built: `src/export.ts` (6 HTML renderers with print CSS, T7 disclaimer, T8 provenance labels, no scores), `src/pdf.ts` (headless-shell `--print-to-pdf`, no new npm deps), `GET /api/docs/:kind/:id?format=html|pdf`; `scripts/e2e-export.mjs`; `tests/export.test.ts` (2 tests).
+- Verification (all green, real run): full suite 31 passed; `E2E PASS: pdf-export` (all 6 docs HTML+PDF, disclaimer present, no score text, unknown kind 404); pypdf fidelity check on real PDFs — matrix + timetable render extractable Vietnamese text with disclaimer + provenance labels, zero score leaks; lint/typecheck/build clean.
+- Fixes during task (4): disclaimer test asserted negated wording correctly; e2e header-merge spread bug; jsonb objects vs strings in `kv()`/`subjects`; pg `Date` objects in `esc()` — all renderers now coerce.
+- Status: DONE.
+
 ---

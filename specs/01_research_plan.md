@@ -173,4 +173,57 @@ Explicit non-goal carried into Phase 2: the product is **not** required to use a
 
 ---
 
+## 6. Execution Topology, Tooling Readiness, and Reviewer Inputs
+
+This section records how Phase 2 will actually be run, with what, and what it needs from the reviewer — so the `APPROVE` decision covers execution, not only research content. It is specific to the current executing session; if a different agent or session executes Phase 2, this section must be re-confirmed before starting.
+
+### 6.1 Orchestration and models
+
+- **Orchestrator:** the Muse session that launches Phase 2. It owns scope, workstream assignment, conflict resolution between sources, and the final synthesis in `02_research_synthesis.md`. It does not delegate the `APPROVE` gate or final verdicts. The orchestrator may itself run on the cheap default model (below); the judgment-heavy steps it supervises are explicitly escalated, so quality does not depend on the orchestrator's own tier.
+- **Default worker model — `muse-spark-1.3-contributor`:** every research worker uses this model unless an escalation trigger below fires. Per the reviewer's price list it is roughly two orders of magnitude cheaper than `muse-wonder-1.0` ($0.002 / $0.10 / $0.20 vs. $0.2 / $4 / $20), so it carries all high-volume work: web search and page summarisation, local-corpus extraction, PDF text extraction and structuring, first-pass evidence tables, and draft mappings. Model choice is set explicitly on every workflow call; workers never silently inherit the parent session's model.
+- **Escalation to `muse-wonder-1.0` — only for judgment, not volume:** (i) the adversarial critic, (ii) the final synthesis and all verdicts (including the nine-product verdict table), (iii) resolving conflicts between the three Waldorf corpora, (iv) legal interpretation under R7, and (v) a single retry of any worker that returns `complete: false`, thin evidence, or a critic flag. Everything else stays on the default.
+- **Middle option — `muse-spark-1.3` (non-contributor):** used where the task is routine but the contributor tier's data-use terms are not acceptable for the material (see the caution below) and Wonder-level judgment is not needed.
+- **Contributor data-use caution:** the contributor discount is tied to the listing note that submitted content, including inter-session messages, may be used by the provider. Before sending unpublished or third-party material (notably the `tmp/` corpora) to contributor workers in bulk, minimise verbatim excerpts, prefer local extraction tools to pre-digest content, and — unless the reviewer explicitly accepts those terms for that material — route that workstream to `muse-spark-1.3` or `muse-wonder-1.0` instead. This caution is the main limit on "as much as possible"; it does not block use for public sources (MOET publications, product documentation, benchmarks).
+- **Workstreams (split by evidence surface, not by role name):**
+  1. Waldorf pedagogy from the local corpora (R1–R4).
+  2. MOET GDPT 2018 structure, alignment method, and homeschooling legal context (R5–R7).
+  3. XuVi Story end-to-end (R8–R13).
+  4. The six generated documents and their shared content model (R14–R16).
+  5. The nine named Meta products, capability fit, and Vietnamese-language quality (R17–R19).
+  6. Reference stack, cross-cutting concerns, cost, and `tmp/` provenance (R20–R24).
+- **Evidence contract:** every worker returns a structured result — `complete`, `evidence[]`, `unresolved[]` — and must open and read every source body it cites (page, section, or URL). Search-result snippets locate candidates; they are not evidence. Notes and provenance references from each worker are carried into synthesis, and omitted scope is disclosed rather than silently dropped.
+- **Verification:** after the six workstreams, one adversarial critic looks for concrete gaps and falsifiable weak claims; each surviving gap gets at most one focused follow-up. A final synthesis step then writes `02_research_synthesis.md` from the collected evidence only. Execution finishing is not treated as research completeness — unresolved items stay listed.
+- **Effort estimate (indicative, not a cap):** roughly 8–9 agent runs in total (6 workers + critic + follow-up(s) + synthesis), each typically consuming on the order of tens of thousands of tokens, with the PDF-heavy workstream (R5–R7) the most expensive. Because all high-volume work runs on `muse-spark-1.3-contributor` and only the critic, synthesis, and any escalated retries use `muse-wonder-1.0`, cost is dominated by those few Wonder calls, not by token volume. Actual cost depends on how much of the 1,555-page TT32 PDF must be read at page level.
+
+### 6.2 Search and research tools
+
+- **Web discovery:** the session's built-in web search tool, used to find official MOET publications, Meta product/model documentation, pricing and data terms, and Vietnamese LLM/STT benchmarks (R5–R7, R17–R19).
+- **Web reading:** the session's built-in page-fetch tool, used to read the full body of each source that will be cited; every cited URL is preserved in the synthesis.
+- **Local inspection:** local file read and content search over `specs/` and `tmp/`, plus Git history to confirm which reference files are tracked vs. machine-local (R23).
+- **No search API key is required.** Web search and page fetch are built into this session and need no key, account, or quota setup from the reviewer. If a source sits behind a login or paywall, it is recorded as unresolved with the blocking reason instead of being worked around.
+
+### 6.3 Other tools and readiness
+
+- **PDF extraction (known gap):** the TT32 PDF (1,555 pages) needs text extraction with page citations. This machine currently has no `pdfinfo`/`pdftotext` and no Python `pypdf`/`PyMuPDF` installed; `python3` and `uv` are available. Phase 2 will therefore first verify an extraction path (e.g., an ephemeral `uv run --with pypdf` environment) on a few pages before relying on it for R5–R6. This needs no reviewer action.
+- **Hands-on probes (optional, time-boxed):** throwaway scripts under `/tmp` only — never committed, never using real child data — for small Vietnamese STT/LLM/image trials if Phase 2 scope allows (R19). Probe inputs and outputs, including failures, are reported verbatim.
+- **Version control:** Git, for spec-file commits only during Phase 2.
+
+### 6.4 What is needed from the reviewer
+
+**Needed before Phase 2 can start:**
+
+1. An explicit `APPROVE` of this plan (with any edits), per the operating protocol.
+2. Confirmation or correction of the three defaults at the end of §5 (v1 grade span, Vietnamese as first UI/document language, R13 as evaluation-only).
+3. Confirmation of assumptions A1–A3 (parent-as-teacher, children not direct app users, need to evidence MOET alignment). If any of these is wrong, the product shape changes and the plan must be revised before research starts.
+4. Optional but helpful: any provenance or licensing information the reviewer already holds for the `tmp/` corpora (A15/R23). If none is provided, Phase 2 traces provenance itself and defaults those materials to research-only.
+
+**Explicitly not needed for Phase 2 desk research:**
+
+- No API keys, accounts, or billing setup — including no search API key (see §6.2).
+- No product, cloud, or hosting accounts.
+
+**Deferred to later phases:** API keys or accounts for any Meta product or alternative vendor (LLM, image, speech-to-text), and for any hosting platform (e.g., Baseten, Modal, Fireworks), are only needed if (a) the reviewer requests hands-on API probes during Phase 2 for a specific product, or (b) Phase 3's Pre-flight section lists them for implementation, to be verified in Phase 4. Phase 2 identifies which of the nine named products are real and accessible; it does not require accessing them.
+
+---
+
 *End of Phase 1 deliverable. Awaiting `APPROVE` (with any edits) before Phase 2 research execution begins.*

@@ -97,4 +97,11 @@ Plan locked: [03 Implementation Plan](/Users/moc/Projects/xuvi-waldorf/specs/03_
 - Fixes during task (3): test built multipart body in latin1 (use utf8); widened 400 mapping (`unsupported|too long`); rejected uploads now deleted from disk.
 - Status: DONE.
 
+## Task 10 — XuVi visuals, practice, recording, and transcription
+
+- Built: `src/practice.ts` (stub SVG illustrations honestly labelled, upload path, mandatory review gate, attempt labelling with_prompts/fading/free × none/text/keywords, WAV 16-bit PCM energy/VAD supplement with pause detection, parental acknowledgement gate for flagged stories, transcript correction); routes `POST /api/story-maps/:mapId/images`, `PATCH/GET /api/images/:id*`, `POST/PATCH /api/attempts*`, `GET /api/audiences/:id/attempts`; `scripts/e2e-practice.mjs` (synthetic WAV: tone-silence-tone); `tests/practice.test.ts` (2 tests). No STT endpoint guessed: transcription runs only with explicit STT_BASE_URL; parent-recorded/corrected transcript is the v1 record (R11).
+- Verification (all green, real run): full suite 36 passed; `E2E PASS: record-correct-retry` (live: unapproved image blocked 400 → approve → WAV upload → metrics analyzed with pauseCount ≥ 1 → correction saved → labelled history filters correctly); lint/typecheck/build clean.
+- Fixes during task (2): `prefer-const` in practice.ts; widened 400 mapping (`unapproved|acknowledgement`).
+- Status: DONE.
+
 ---

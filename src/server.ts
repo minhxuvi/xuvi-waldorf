@@ -7,6 +7,7 @@ import { getEnv, getPool } from "./db.js";
 import { createGradeProgram, createProgram, createYearPlan, lockProgram, updateProgram } from "./documents.js";
 import { renderGradeDoc, renderJournalDoc, renderMatrixDoc, renderProgramDoc, renderTimetableDoc, renderYearPlanDoc } from "./export.js";
 import { confirmStoryMap, createAudience, createStory, editStoryMap, extractText, flagSensitive, parseMultipart, proposeStoryMap, saveUpload } from "./xuvi.js";
+import { AUDIO_EXTS, correctTranscript, createAttempt, createSceneImage, imageFile, reviewSceneImage } from "./practice.js";
 import { appendJournalEntry, buildReportDraft, createChildProfile, createReport, listJournal, signOffReport } from "./journal.js";
 import { htmlToPdf } from "./pdf.js";
 import { createSlots, renderWeek } from "./timetable.js";
@@ -53,6 +54,12 @@ export const ROUTES = [
   "GET /api/audiences/:id/story-map",
   "PUT /api/story-maps/:id",
   "POST /api/story-maps/:id/confirm",
+  "POST /api/story-maps/:mapId/images",
+  "PATCH /api/images/:id",
+  "GET /api/images/:id/file",
+  "POST /api/attempts",
+  "PATCH /api/attempts/:id",
+  "GET /api/audiences/:id/attempts",
 ] as const;
 
 function readRaw(req: IncomingMessage, limit = 11 * 1024 * 1024): Promise<Buffer> {
@@ -452,6 +459,109 @@ export function createApp(env: AppEnv, dbCheck: (url: string) => Promise<boolean
           return;
         }
       }
+      const imgCreate = /^POST \/api\/story-maps\/([^/]+)\/images$/.exec(`${req.method} ${req.url?.split("?")[0]}`);
+      if (imgCreate) {
+        const mapId = imgCreate[1];
+        const contentType = req.headers["content-type"] ?? "";
+        if (contentType.includes("multipart/form-data")) {
+          const parsed = parseMultipart(contentType, await readRaw(req));
+          const saved = saveUpload(parsed.filename, parsed.data);
+          const { id, provider } = await createSceneImage(pool, getEnv(), me.family_id, mapId, {
+            sceneRef: parsed.fields["sceneRef"] ?? parsed.filename,
+            style: parsed.fields["style"],
+            storagePath: saved,
+            kind: "uploaded",
+          });
+          sendJson(res, 201, { id, provider });
+          return;
+        }
+        const body = await readJson(req);
+        const { id, provider } = await createSceneImage(pool, getEnv(), me.family_id, mapId, {
+          sceneRef: String(body["sceneRef"] ?? ""),
+          style: body["style"] as string | undefined,
+          kind: "generated",
+        });
+        sendJson(res, 201, { id, provider });
+        return;
+      }
+      const imgMatch = /^(PATCH|GET) \/api\/images\/([^/]+)(\/.*)?$/.exec(`${req.method} ${req.url?.split("?")[0]}`);
+      if (imgMatch) {
+        const [, method, id, rest] = imgMatch;
+        if (method === "PATCH" && !rest) {
+          const body = await readJson(req);
+          await reviewSceneImage(pool, me.family_id, id, String(body["reviewStatus"] ?? ""));
+          sendJson(res, 200, { ok: true });
+          return;
+        }
+        if (method === "GET" && rest === "/file") {
+          const { storagePath } = await imageFile(pool, me.family_id, id);
+          const { createReadStream, statSync } = await import("node:fs");
+          const ext = "." + storagePath.split(".").pop()?.toLowerCase();
+          const types: Record<string, string> = { ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp" };
+          res.writeHead(200, { "content-type": types[ext] ?? "application/octet-stream", "content-length": statSync(storagePath).size });
+          createReadStream(storagePath).pipe(res);
+          return;
+        }
+      }
+      const attList = /^GET \/api\/audiences\/([^/]+)\/attempts$/.exec(`${req.method} ${req.url?.split("?")[0]}`);
+      if (attList) {
+        const u = new URL(req.url ?? "", "http://x");
+        const pm = u.searchParams.get("promptsMode") ?? "";
+        const as = u.searchParams.get("assistance") ?? "";
+        const rows = await pool.query(
+          `SELECT at.* FROM attempts at JOIN audiences a ON a.id = at.audience_id JOIN stories s ON s.id = a.story_id
+           WHERE a.id = $1 AND s.family_id = $2 AND ($3 = '' OR at.prompts_mode = $3) AND ($4 = '' OR at.assistance = $4) ORDER BY at.created_at`,
+          [attList[1], me.family_id, pm, as],
+        );
+        sendJson(res, 200, rows.rows);
+        return;
+      }
+      if (route === "POST /api/attempts") {
+        const contentType = req.headers["content-type"] ?? "";
+        let fields: Record<string, string> = {};
+        let audioPath = "";
+        if (contentType.includes("multipart/form-data")) {
+          const parsed = parseMultipart(contentType, await readRaw(req));
+          fields = parsed.fields;
+          if (parsed.filename) {
+            const ext = "." + parsed.filename.split(".").pop()?.toLowerCase();
+            if (!(AUDIO_EXTS as readonly string[]).includes(ext)) {
+              sendJson(res, 400, { error: `unsupported audio type: ${ext}` });
+              return;
+            }
+            audioPath = saveUpload(parsed.filename, parsed.data);
+          }
+        } else {
+          const body = await readJson(req);
+          for (const [k, v] of Object.entries(body)) fields[k] = String(v ?? "");
+        }
+        try {
+          const { id, metrics, sensitivity } = await createAttempt(pool, me.family_id, {
+            audienceId: fields["audienceId"] ?? "",
+            sceneImageId: fields["sceneImageId"] || undefined,
+            audioPath: audioPath || undefined,
+            promptsMode: fields["promptsMode"],
+            assistance: fields["assistance"],
+            transcript: fields["transcript"],
+            acknowledgeFlags: fields["acknowledgeFlags"] === "true",
+          });
+          sendJson(res, 201, { id, metrics, sensitivity });
+        } catch (err) {
+          if (audioPath) {
+            const { rmSync } = await import("node:fs");
+            rmSync(audioPath, { force: true });
+          }
+          throw err;
+        }
+        return;
+      }
+      const attMatch = /^PATCH \/api\/attempts\/([^/]+)$/.exec(`${req.method} ${req.url?.split("?")[0]}`);
+      if (attMatch) {
+        const body = await readJson(req);
+        await correctTranscript(pool, me.family_id, attMatch[1], String(body["transcriptCorrected"] ?? ""));
+        sendJson(res, 200, { ok: true });
+        return;
+      }
       const docMatch = /^GET \/api\/docs\/([^/]+)\/([^/?]+)$/.exec(`${req.method} ${req.url?.split("?")[0]}`);
       if (docMatch) {
         const [, kind, id] = docMatch;
@@ -502,7 +612,7 @@ export function createApp(env: AppEnv, dbCheck: (url: string) => Promise<boolean
       sendJson(res, 404, { error: "not-found" });
     } catch (err) {
       const message = err instanceof Error ? err.message : "internal";
-      const status = /unauthorized|invalid credentials/.test(message) ? 401 : /Missing|invalid|too short|exists|unknown|required|locked|not found|over-allocates|positive|must be|after start|unsupported|too long/.test(message) ? 400 : 500;
+      const status = /unauthorized|invalid credentials/.test(message) ? 401 : /Missing|invalid|too short|exists|unknown|required|locked|not found|over-allocates|positive|must be|after start|unsupported|too long|unapproved|acknowledgement/.test(message) ? 400 : 500;
       sendJson(res, status, { error: status === 500 ? "internal" : message });
     }
   });

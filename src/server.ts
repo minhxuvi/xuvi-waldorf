@@ -8,6 +8,7 @@ import { createGradeProgram, createProgram, createYearPlan, lockProgram, updateP
 import { renderGradeDoc, renderJournalDoc, renderMatrixDoc, renderProgramDoc, renderTimetableDoc, renderYearPlanDoc } from "./export.js";
 import { confirmStoryMap, createAudience, createStory, editStoryMap, extractText, flagSensitive, parseMultipart, proposeStoryMap, saveUpload } from "./xuvi.js";
 import { AUDIO_EXTS, correctTranscript, createAttempt, createSceneImage, imageFile, reviewSceneImage } from "./practice.js";
+import { buildFeedback } from "./feedback.js";
 import { appendJournalEntry, buildReportDraft, createChildProfile, createReport, listJournal, signOffReport } from "./journal.js";
 import { htmlToPdf } from "./pdf.js";
 import { createSlots, renderWeek } from "./timetable.js";
@@ -60,6 +61,7 @@ export const ROUTES = [
   "POST /api/attempts",
   "PATCH /api/attempts/:id",
   "GET /api/audiences/:id/attempts",
+  "POST /api/attempts/:id/feedback",
 ] as const;
 
 function readRaw(req: IncomingMessage, limit = 11 * 1024 * 1024): Promise<Buffer> {
@@ -555,12 +557,19 @@ export function createApp(env: AppEnv, dbCheck: (url: string) => Promise<boolean
         }
         return;
       }
-      const attMatch = /^PATCH \/api\/attempts\/([^/]+)$/.exec(`${req.method} ${req.url?.split("?")[0]}`);
+      const attMatch = /^(PATCH|POST) \/api\/attempts\/([^/]+)(\/.*)?$/.exec(`${req.method} ${req.url?.split("?")[0]}`);
       if (attMatch) {
-        const body = await readJson(req);
-        await correctTranscript(pool, me.family_id, attMatch[1], String(body["transcriptCorrected"] ?? ""));
-        sendJson(res, 200, { ok: true });
-        return;
+        const [, method, id, rest] = attMatch;
+        if (method === "PATCH" && !rest) {
+          const body = await readJson(req);
+          await correctTranscript(pool, me.family_id, id, String(body["transcriptCorrected"] ?? ""));
+          sendJson(res, 200, { ok: true });
+          return;
+        }
+        if (method === "POST" && rest === "/feedback") {
+          sendJson(res, 200, await buildFeedback(pool, getEnv(), me.family_id, id));
+          return;
+        }
       }
       const docMatch = /^GET \/api\/docs\/([^/]+)\/([^/?]+)$/.exec(`${req.method} ${req.url?.split("?")[0]}`);
       if (docMatch) {

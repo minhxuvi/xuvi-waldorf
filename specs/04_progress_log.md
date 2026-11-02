@@ -104,4 +104,10 @@ Plan locked: [03 Implementation Plan](/Users/moc/Projects/xuvi-waldorf/specs/03_
 - Fixes during task (2): `prefer-const` in practice.ts; widened 400 mapping (`unapproved|acknowledgement`).
 - Status: DONE.
 
+## Task 11 — XuVi Story feedback, history, and the evaluation harness
+
+- Built: `src/feedback.ts` (LLM path with strict JSON instruction + deterministic stub heuristic fallback, both fixed-form, `assertNoScore` before persist); route `POST /api/attempts/:id/feedback`; `scripts/e2e-feedback.mjs`; `scripts/eval_r13.mjs` (offline blinded review sheet, file-only); `tests/feedback.test.ts`.
+- Verification (all green, real run): full suite 37 passed; `E2E PASS: feedback-no-score` (fixed form complete, exactly one non-empty next step, recursive no-score proof on feedback + history, history groups 1 vs 2 by condition labels); R13 sheet written to file only; lint/typecheck/build clean.
+- Status: DONE (no fixes needed).
+
 ---

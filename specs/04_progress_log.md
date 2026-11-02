@@ -55,4 +55,11 @@ Plan locked: [03 Implementation Plan](/Users/moc/Projects/xuvi-waldorf/specs/03_
 - Fixes during task (1): `logAudit` import moved from `privacy.js` to `auth.js`.
 - Status: DONE.
 
+## Task 4 — MOET reference dataset ingestion
+
+- Built: `scripts/ingest_moet.py` (extract `--out`, `--check`, `--seed`), `db/migrations/003_moet.sql` (`moet_outcomes` with `product_generated_id` per row, T1), `data/moet_outcomes.json` (11,003 verbatim rows, 21 subjects: NGỮ VĂN 936, TOÁN 903, TIẾNG ANH 1117, KHTN 821, SINH 565, VẬT LÍ 257, ...), `tests/moet-dataset.test.ts` (5 tests).
+- Extraction fixes during task (4): un-double-escaped bullet regex; heading-anchored YCCD gate (body text no longer toggles); exact ALL-CAPS subject headers (prose "môn Vật lí." no longer flips subject; same-subject headers don't reset gate); both table-header orders + U+F02D/U+F0B7 bullets; line-wrap continuation join. Method + residual risks recorded in JSON meta and here: some Nội dung-column dash cells captured as rows; merged-column fragments may mis-pair — all rows page-cited so parents confirm before Doc 3 use.
+- Verification (all green, real run): `ingest_moet.py --check` → `CHECK OK` (11,003 rows, 0 invented codes, verbatim page cross-check 389/400); `pnpm test -- moet-dataset` within full suite (21 passed); `003_moet.sql` applied live. Note: `--seed` (11k upserts) was still running at commit time; seed is outside Task 4's verification commands and is confirmed separately before Task 6.
+- Status: DONE.
+
 ---

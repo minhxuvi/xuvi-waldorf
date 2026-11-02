@@ -41,4 +41,11 @@ Plan locked: [03 Implementation Plan](/Users/moc/Projects/xuvi-waldorf/specs/03_
 - Fixes during task (2, within circuit-breaker budget): `rootDir`/include split + stray emit cleanup; `as const` on ternary → typed variable; stripped TS annotations from `.mjs` e2e script.
 - Status: DONE.
 
+## Task 2 — Shared content model and invariants
+
+- Built: `db/migrations/001_core.sql` (15 tables: families → child_profiles (no logins, T10) → programs → grade_programs → alignment_rows → year_plans → timetable_slots → journal_entries/periodic_reports; stories → audiences → story_maps → scene_images → attempts with NO score column, T9), `scripts/migrate.mjs` (`pnpm db:migrate`, tracked in `schema_migrations`, per-file transactions), `src/model/validation.ts` (hours-split T2, day arithmetic ≤420 min, render gate T1, no-score guard T9, image gate T5).
+- Verification (all green, real run): `pnpm test -- content-model` (12 passed incl. negative cases); `pnpm db:migrate` → `applied 001_core.sql` against live Supabase; live `information_schema` check: 15 tables present, `attempts` has no score/ranking column; `pnpm lint` + `pnpm typecheck` clean.
+- Fixes during task (1): `scripts/migrate.mjs` now loads `.env` via dotenv (was missing `DATABASE_URL`).
+- Status: DONE.
+
 ---

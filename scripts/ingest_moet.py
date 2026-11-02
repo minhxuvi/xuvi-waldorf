@@ -249,23 +249,40 @@ def cmd_seed():
     except Exception as e:
         raise SystemExit(f"DB connect failed (host {host}): {type(e).__name__}")
     data = load_json()
+    rows = data["rows"]
     with conn.cursor() as cur:
-        for r in data["rows"]:
-            cur.execute(
+        batch = []
+        done = 0
+        for r in rows:
+            batch.append((r["internal_id"], r["subject"], r["grade"], r["level"], r["strand"], r["topic"],
+                          r["yeu_cau_can_dat_verbatim"], r["paired_noi_dung"],
+                          json.dumps(r["source_locator"], ensure_ascii=False),
+                          json.dumps(r["competency_refs"], ensure_ascii=False)))
+            if len(batch) >= 500:
+                cur.executemany(
+                    """INSERT INTO moet_outcomes
+                       (internal_id, subject, grade, level, strand, topic,
+                        yeu_cau_can_dat_verbatim, paired_noi_dung, source_locator, competency_refs)
+                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s::jsonb)
+                       ON CONFLICT (internal_id) DO UPDATE SET
+                         yeu_cau_can_dat_verbatim = EXCLUDED.yeu_cau_can_dat_verbatim,
+                         source_locator = EXCLUDED.source_locator""", batch)
+                conn.commit()
+                done += len(batch)
+                print(f"  ...{done}/{len(rows)}", flush=True)
+                batch = []
+        if batch:
+            cur.executemany(
                 """INSERT INTO moet_outcomes
                    (internal_id, subject, grade, level, strand, topic,
                     yeu_cau_can_dat_verbatim, paired_noi_dung, source_locator, competency_refs)
                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s::jsonb)
                    ON CONFLICT (internal_id) DO UPDATE SET
                      yeu_cau_can_dat_verbatim = EXCLUDED.yeu_cau_can_dat_verbatim,
-                     source_locator = EXCLUDED.source_locator""",
-                (r["internal_id"], r["subject"], r["grade"], r["level"], r["strand"], r["topic"],
-                 r["yeu_cau_can_dat_verbatim"], r["paired_noi_dung"],
-                 json.dumps(r["source_locator"], ensure_ascii=False),
-                 json.dumps(r["competency_refs"], ensure_ascii=False)),
-            )
-    conn.commit()
-    print(f"seed OK: {len(data['rows'])} rows upserted")
+                     source_locator = EXCLUDED.source_locator""", batch)
+            conn.commit()
+            done += len(batch)
+    print(f"seed OK: {done} rows upserted")
     conn.close()
 
 

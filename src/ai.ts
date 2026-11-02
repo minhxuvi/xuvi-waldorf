@@ -54,6 +54,16 @@ export async function draftProse(
   familyId: string,
   req: DraftRequest,
 ): Promise<{ text: string; provider: AiProvider }> {
+  // Per-family daily AI quota (Task 12): counts audit-logged drafts in the
+  // last 24h. Quotas demonstrably stop over-limit jobs (429).
+  const quota = Number(process.env["AI_DAILY_QUOTA"] ?? 50);
+  const used = await pool.query(
+    "SELECT count(*)::int AS n FROM audit_log WHERE family_id = $1 AND action LIKE 'ai.draft.%' AND created_at > now() - interval '24 hours'",
+    [familyId],
+  );
+  if ((used.rows[0] as { n: number }).n >= quota) {
+    throw new Error(`daily AI quota exceeded (${quota}/24h); try again tomorrow`);
+  }
   const provider = pickLlmProvider(env);
   const language = req.language ?? "vi";
   const system =

@@ -110,4 +110,14 @@ Plan locked: [03 Implementation Plan](/Users/moc/Projects/xuvi-waldorf/specs/03_
 - Verification (all green, real run): full suite 37 passed; `E2E PASS: feedback-no-score` (fixed form complete, exactly one non-empty next step, recursive no-score proof on feedback + history, history groups 1 vs 2 by condition labels); R13 sheet written to file only; lint/typecheck/build clean.
 - Status: DONE (no fixes needed).
 
+## Task 12 — Provider probes, cost/quotas, and release hardening
+
+- Probes (hands-on, synthetic folktale text only, no child data): `scripts/probe_llm.mjs` → Meta `muse-spark-1.3` segments a Vietnamese folktale paragraph into 4 correct scenes, diacritics and folktale register intact → Spark confirmed as primary LLM for (i)/(ii) pending production traffic. Not probed (recorded honestly): Voice Transcribe per-language WER (no STT endpoint configured in waived mode), Image style/cultural fidelity (image endpoint waived), Whisper/VAD supplement on real Vietnamese recordings, non-Meta LLM baseline (no fallback key provisioned).
+- Seed confirmed: `moet_outcomes` = 11,003 rows live (batch executemany fixed the stalled single-row seed; old bg session killed).
+- Quotas: per-family daily AI draft quota via audit_log (`AI_DAILY_QUOTA`, default 50) → `E2E PASS: quota-429`; 10MB/file upload cap; retention policy documented in `RUNBOOK.md` (new).
+- Hardening: claim sweep over `src/ tests/ scripts/` — hits are only negations, provenance labels, and test assertions (no efficacy/legal/score claims); `RUNBOOK.md` with setup/run/verify instructions.
+- Verification (all green, real run): `pnpm build && pnpm lint && pnpm typecheck && pnpm test` (37 passed) + full `pnpm test:e2e` — all 10 flows PASS (health, privacy, docs, matrix, journal, pdf-export, story, practice, feedback, quota). Cost stays formula-only per plan (U7).
+- Fixes during task (1): per-row seed replaced with 500-row batches.
+- Status: DONE.
+
 ---

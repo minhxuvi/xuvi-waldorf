@@ -621,6 +621,10 @@ export function createApp(env: AppEnv, dbCheck: (url: string) => Promise<boolean
       sendJson(res, 404, { error: "not-found" });
     } catch (err) {
       const message = err instanceof Error ? err.message : "internal";
+      if (/daily AI quota exceeded/.test(message)) {
+        sendJson(res, 429, { error: message });
+        return;
+      }
       const status = /unauthorized|invalid credentials/.test(message) ? 401 : /Missing|invalid|too short|exists|unknown|required|locked|not found|over-allocates|positive|must be|after start|unsupported|too long|unapproved|acknowledgement/.test(message) ? 400 : 500;
       sendJson(res, status, { error: status === 500 ? "internal" : message });
     }

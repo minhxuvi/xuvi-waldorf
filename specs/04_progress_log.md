@@ -33,4 +33,12 @@ Plan locked: [03 Implementation Plan](/Users/moc/Projects/xuvi-waldorf/specs/03_
 - Report: see Phase 4 table above (P1–P3 PASS, P4r/P5r PASS after one fix round).
 - Status: DONE (verification: Phase 4 table 100% PASS).
 
+## Task 1 — Scaffold and quality gates
+
+- Built: TypeScript web monolith (`src/server.ts` with `GET /api/health` reporting db/storage/AI modes, no secrets leaked), `src/env.ts` (fail-fast on missing `DATABASE_URL`/`AUTH_SECRET`; S3/image/STT optional → stub mode), `src/i18n.ts` (vi-first catalog), `tests/health.test.ts` (5 tests), `scripts/e2e-health.mjs` (boots real server, asserts health shape), `.env.example`, eslint + vitest configs.
+- Verification (all green, real run): `pnpm build`, `pnpm lint`, `pnpm typecheck`, `pnpm test` (5 passed), `pnpm test:e2e` → `E2E PASS: /api/health {"ok":true,"db":"up","storage":"local-stub","ai":{"llm":"meta","image":"meta","stt":"meta"}}` against live Supabase.
+- Minor deviation from plan: typecheck runs `tsc --noEmit -p tsconfig.check.json` (src+tests+scripts) while build uses `tsconfig.json` (src only) — fixes `rootDir` conflict; the `pnpm typecheck` command itself is unchanged.
+- Fixes during task (2, within circuit-breaker budget): `rootDir`/include split + stray emit cleanup; `as const` on ternary → typed variable; stripped TS annotations from `.mjs` e2e script.
+- Status: DONE.
+
 ---

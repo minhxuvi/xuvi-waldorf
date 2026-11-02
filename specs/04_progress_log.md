@@ -90,4 +90,11 @@ Plan locked: [03 Implementation Plan](/Users/moc/Projects/xuvi-waldorf/specs/03_
 - Fixes during task (4): disclaimer test asserted negated wording correctly; e2e header-merge spread bug; jsonb objects vs strings in `kv()`/`subjects`; pg `Date` objects in `esc()` — all renderers now coerce.
 - Status: DONE.
 
+## Task 9 — XuVi Story core: upload, audience, story map
+
+- Built: `scripts/extract_upload.py` (.txt/.md/.html/.pdf/.docx via uv+pypdf+python-docx; legacy .doc rejected with guidance), `src/xuvi.ts` (allowlist, multipart parser, `flagSensitive` age-gating rules war/death/dark/grief with min ages, stub paragraph-chunker proposer, parent edit/confirm), routes `POST/GET /api/stories*`, `POST/GET /api/audiences/:id/story-map*`, `PUT/POST /api/story-maps/:id*`; `scripts/e2e-story.mjs`; `tests/xuvi-story.test.ts` (3 tests). Age-band criteria (U9): keyword rules + mandatory parental acknowledgement mechanism at practice time (Task 10); criteria text recorded here for reviewer lock-in.
+- Verification (all green, real run): full suite 34 passed; `E2E PASS: story-upload-to-map` (live: multipart .txt → gentle unflagged → war text flagged war/minAge 9 → audience → stub propose → edit adds character → confirm → confirmed-edit 400 → .exe 400 with file cleaned from disk); lint/typecheck/build clean.
+- Fixes during task (3): test built multipart body in latin1 (use utf8); widened 400 mapping (`unsupported|too long`); rejected uploads now deleted from disk.
+- Status: DONE.
+
 ---

@@ -6,6 +6,7 @@ import { authenticate, loginTeacher, logoutTeacher, logAudit, registerTeacher } 
 import { getEnv, getPool } from "./db.js";
 import { createGradeProgram, createProgram, createYearPlan, lockProgram, updateProgram } from "./documents.js";
 import { renderGradeDoc, renderJournalDoc, renderMatrixDoc, renderProgramDoc, renderTimetableDoc, renderYearPlanDoc } from "./export.js";
+import { confirmStoryMap, createAudience, createStory, editStoryMap, extractText, flagSensitive, parseMultipart, proposeStoryMap, saveUpload } from "./xuvi.js";
 import { appendJournalEntry, buildReportDraft, createChildProfile, createReport, listJournal, signOffReport } from "./journal.js";
 import { htmlToPdf } from "./pdf.js";
 import { createSlots, renderWeek } from "./timetable.js";
@@ -44,7 +45,33 @@ export const ROUTES = [
   "POST /api/children/:id/reports",
   "POST /api/reports/:id/signoff",
   "GET /api/docs/:kind/:id",
+  "POST /api/stories",
+  "GET /api/stories",
+  "GET /api/stories/:id",
+  "POST /api/stories/:id/audiences",
+  "POST /api/audiences/:id/story-map/propose",
+  "GET /api/audiences/:id/story-map",
+  "PUT /api/story-maps/:id",
+  "POST /api/story-maps/:id/confirm",
 ] as const;
+
+function readRaw(req: IncomingMessage, limit = 11 * 1024 * 1024): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    req.on("data", (c: Buffer) => {
+      size += c.length;
+      if (size > limit) {
+        reject(new Error("body too large"));
+        req.destroy();
+        return;
+      }
+      chunks.push(c);
+    });
+    req.on("end", () => resolve(Buffer.concat(chunks)));
+    req.on("error", reject);
+  });
+}
 
 function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
@@ -322,6 +349,109 @@ export function createApp(env: AppEnv, dbCheck: (url: string) => Promise<boolean
           return;
         }
       }
+      if (route === "POST /api/stories") {
+        const contentType = req.headers["content-type"] ?? "";
+        if (contentType.includes("multipart/form-data")) {
+          const parsed = parseMultipart(contentType, await readRaw(req));
+          const saved = saveUpload(parsed.filename, parsed.data);
+          let text: string;
+          try {
+            text = await extractText(saved);
+          } catch (err) {
+            const { rmSync } = await import("node:fs");
+            rmSync(saved, { force: true });
+            throw err;
+          }
+          const { id, sensitivity } = await createStory(pool, me.family_id, {
+            title: parsed.fields["title"]?.trim() || parsed.filename.replace(/\.[^.]+$/, ""),
+            text,
+            language: parsed.fields["language"] || "vi",
+            sourceFilename: parsed.filename,
+            sourceRights: parsed.fields["sourceRights"] ?? "",
+            usageRights: parsed.fields["usageRights"] ?? "",
+          });
+          sendJson(res, 201, { id, sensitivity });
+          return;
+        }
+        const body = await readJson(req);
+        const { id, sensitivity } = await createStory(pool, me.family_id, {
+          title: String(body["title"] ?? ""),
+          text: String(body["text"] ?? ""),
+          language: (body["language"] as string | undefined) ?? "vi",
+          sourceRights: body["sourceRights"] as string | undefined,
+          usageRights: body["usageRights"] as string | undefined,
+        });
+        sendJson(res, 201, { id, sensitivity });
+        return;
+      }
+      if (route === "GET /api/stories") {
+        const rows = await pool.query("SELECT id, title, language, created_at FROM stories WHERE family_id = $1 ORDER BY created_at DESC", [me.family_id]);
+        sendJson(res, 200, rows.rows);
+        return;
+      }
+      const storyMatch = /^(GET|POST) \/api\/stories\/([^/]+)(\/.*)?$/.exec(`${req.method} ${req.url?.split("?")[0]}`);
+      if (storyMatch) {
+        const [, method, id, rest] = storyMatch;
+        if (method === "GET" && !rest) {
+          const found = await pool.query("SELECT id, title, source_filename, extracted_text, language, source_rights, usage_rights, created_at FROM stories WHERE id = $1 AND family_id = $2", [id, me.family_id]);
+          if (found.rows.length === 0) {
+            sendJson(res, 404, { error: "not-found" });
+            return;
+          }
+          const row = found.rows[0] as Record<string, unknown>;
+          sendJson(res, 200, { ...row, sensitivity: flagSensitive(String(row["extracted_text"] ?? "")) });
+          return;
+        }
+        if (method === "POST" && rest === "/audiences") {
+          const body = await readJson(req);
+          sendJson(res, 201, await createAudience(pool, me.family_id, id, {
+            age: String(body["age"] ?? ""),
+            language: (body["language"] as string | undefined) ?? "vi",
+            context: body["context"] as string | undefined,
+            practiceGoal: body["practiceGoal"] as string | undefined,
+          }));
+          return;
+        }
+      }
+      const audMatch = /^(GET|POST) \/api\/audiences\/([^/]+)(\/.*)?$/.exec(`${req.method} ${req.url?.split("?")[0]}`);
+      if (audMatch) {
+        const [, method, id, rest] = audMatch;
+        if (method === "POST" && rest === "/story-map/propose") {
+          sendJson(res, 201, await proposeStoryMap(pool, getEnv(), me.family_id, id));
+          return;
+        }
+        if (method === "GET" && rest === "/story-map") {
+          const rows = await pool.query(
+            "SELECT sm.* FROM story_maps sm JOIN audiences a ON a.id = sm.audience_id JOIN stories s ON s.id = a.story_id WHERE a.id = $1 AND s.family_id = $2 ORDER BY sm.id DESC LIMIT 1",
+            [id, me.family_id],
+          );
+          if (rows.rows.length === 0) {
+            sendJson(res, 404, { error: "not-found" });
+            return;
+          }
+          sendJson(res, 200, rows.rows[0]);
+          return;
+        }
+      }
+      const mapMatch = /^(PUT|POST) \/api\/story-maps\/([^/]+)(\/.*)?$/.exec(`${req.method} ${req.url?.split("?")[0]}`);
+      if (mapMatch) {
+        const [, method, id, rest] = mapMatch;
+        if (method === "PUT" && !rest) {
+          const body = await readJson(req);
+          await editStoryMap(pool, me.family_id, id, {
+            chapters: (body["chapters"] ?? []) as unknown[],
+            characters: (body["characters"] ?? []) as unknown[],
+            essential_details: (body["essential_details"] ?? []) as unknown[],
+          });
+          sendJson(res, 200, { ok: true });
+          return;
+        }
+        if (method === "POST" && rest === "/confirm") {
+          await confirmStoryMap(pool, me.family_id, id);
+          sendJson(res, 200, { ok: true });
+          return;
+        }
+      }
       const docMatch = /^GET \/api\/docs\/([^/]+)\/([^/?]+)$/.exec(`${req.method} ${req.url?.split("?")[0]}`);
       if (docMatch) {
         const [, kind, id] = docMatch;
@@ -372,7 +502,7 @@ export function createApp(env: AppEnv, dbCheck: (url: string) => Promise<boolean
       sendJson(res, 404, { error: "not-found" });
     } catch (err) {
       const message = err instanceof Error ? err.message : "internal";
-      const status = /unauthorized|invalid credentials/.test(message) ? 401 : /Missing|invalid|too short|exists|unknown|required|locked|not found|over-allocates|positive|must be|after start/.test(message) ? 400 : 500;
+      const status = /unauthorized|invalid credentials/.test(message) ? 401 : /Missing|invalid|too short|exists|unknown|required|locked|not found|over-allocates|positive|must be|after start|unsupported|too long/.test(message) ? 400 : 500;
       sendJson(res, status, { error: status === 500 ? "internal" : message });
     }
   });

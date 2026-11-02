@@ -48,4 +48,11 @@ Plan locked: [03 Implementation Plan](/Users/moc/Projects/xuvi-waldorf/specs/03_
 - Fixes during task (1): `scripts/migrate.mjs` now loads `.env` via dotenv (was missing `DATABASE_URL`).
 - Status: DONE.
 
+## Task 3 — Teacher auth, privacy, and audit
+
+- Built: `db/migrations/002_auth.sql` (teachers with case-insensitive unique email, scrypt password hashes, sessions with sha256 token hashes + 30-day expiry, audit_log with provider/payload_type); `src/auth.ts` (register/login/logout/authenticate, timing-safe verify); `src/privacy.ts` (exportFamily archive with secret-stripping, deleteFamily cascade); `src/db.ts` (pool singleton); routes `POST /api/teachers/*`, `GET /api/export`, `GET /api/audit`, `DELETE /api/account` with Bearer auth; `ROUTES` table asserting no child-login routes (T10).
+- Verification (all green, real run): `pnpm test -- auth privacy audit` within full suite (16 passed); `pnpm test:e2e` → health PASS + `E2E PASS: privacy-flow` (live register → wrong-password 401 → login → export with zero `password_hash`/`token_hash` → audit contains register/login/export with provider+payload_type → unauthenticated export 401 → delete → re-login 401); `pnpm lint` + `typecheck` + `build` clean.
+- Fixes during task (1): `logAudit` import moved from `privacy.js` to `auth.js`.
+- Status: DONE.
+
 ---

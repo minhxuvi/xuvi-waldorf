@@ -16,4 +16,4 @@
 - Choose the tech stack and decide which Meta products SHOULD be used (Wonder, Spark, Image, Voice Transcribe, SAM 3.1, Spark Open, Glimmer, Baseten, Modal, Fireworks). You are not required to use all of them; explain your choices in the research plan.
 
 ## 3. Initial Pointers (Optional)
-- Some related or reference materials may be available in the `tmp` directory.
+- Some related or reference materials may be available in the `references` directory.
